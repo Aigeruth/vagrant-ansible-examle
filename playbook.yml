@@ -1,0 +1,48 @@
+---
+- hosts: all
+  roles:
+    - pgolm.monit
+    - tersmitten.ufw
+  vars:
+    monit_cycle: 60
+    monit_webinterface_enabled: true
+    monit_webinterface_port: 2812
+    monit_webinterface_bind: localhost
+    monit_webinterface_acl_rules:
+      - localhost
+    monit_services:
+      - name: nginx
+        type: process
+        target: /var/run/nginx.pid
+        start: /etc/init.d/nginx start
+        stop: /etc/init.d/nginx stop
+        rules:
+          -  "if totalcpu > 80% for 3 cycles then alert"
+          -  "if totalcpu > 80% for 6 cycles then restart"
+      - name: ssh
+        type: process
+        target: /var/run/sshd.pid
+        start: /usr/sbin/service ssh start
+        stop: /usr/sbin/service ssh stop
+    uwf_rules:
+      - rule: allow
+        to_port: 22
+        protocol: tcp
+      - rule: allow
+        to_port: 80
+        protocol: tcp
+  tasks:
+    - name: set hostname
+      hostname: name=vagrantbox
+    - name: install or update NGiNX
+      apt: pkg=nginx state=latest update_cache=true
+      notify: start NGiNX
+    - name: install or update PostgreSQL
+      apt: pkg=postgresql-9.3 state=latest
+      notify:
+        - start PostgreSQL
+  handlers:
+    - name: start NGiNX
+      service: name=nginx state=started enabled=true
+    - name: start PostgreSQL
+      service: name=postgresql state=started enabled=true
